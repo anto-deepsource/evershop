@@ -1,23 +1,29 @@
 const fs = require('fs').promises;
-const { join } = require('path');
+const { join, normalize } = require('path');
 const staticMiddleware = require('serve-static');
-const { CONSTANTS } = require('../helpers');
-const { getConfig } = require('../util/getConfig');
 
 module.exports = async function themePubliStatic(request, response, next) {
   // Get the request path
-  const { path } = request;
+  const rawPath = request.path;
   const theme = getConfig('system.theme', null);
   if (!theme) {
     next();
   } else {
     try {
-      if (!path.includes('.')) {
+      // Validate and sanitize the path to prevent path traversal
+      const trimmedPath = rawPath.replace(/^[/\\]+/, '');
+      const normalizedPath = normalize(trimmedPath);
+      if (normalizedPath.includes('..')) {
+        throw new Error('Invalid path');
+      }
+      const safePath = normalizedPath;
+
+      if (!safePath.includes('.')) {
         throw new Error('No file extension');
       }
       // Asynchoronously check if the path is a file and exists in the public folder
       const test = await fs.stat(
-        join(CONSTANTS.THEMEPATH, theme, 'public', path)
+        join(CONSTANTS.THEMEPATH, theme, 'public', safePath)
       );
       if (test.isFile()) {
         // If it is a file, serve it
