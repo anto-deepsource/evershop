@@ -12,13 +12,17 @@ module.exports = async function themePubliStatic(request, response, next) {
     next();
   } else {
     try {
-      if (!path.includes('.')) {
+      // Validate and sanitize the request path to prevent path traversal
+      const normalizedPath = normalize(path);
+      if (normalizedPath.startsWith('..') || normalizedPath.includes('../')) {
+        throw new Error('Invalid path');
+      }
+      if (!normalizedPath.includes('.')) {
         throw new Error('No file extension');
       }
       // Asynchoronously check if the path is a file and exists in the public folder
-      const test = await fs.stat(
-        join(CONSTANTS.THEMEPATH, theme, 'public', path)
-      );
+      const filePath = join(CONSTANTS.THEMEPATH, theme, 'public', normalizedPath);
+      const test = await fs.stat(filePath);
       if (test.isFile()) {
         // If it is a file, serve it
         staticMiddleware(join(CONSTANTS.THEMEPATH, theme, 'public'))(
